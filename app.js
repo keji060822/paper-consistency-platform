@@ -22,7 +22,7 @@ const demoPdfBtn = document.getElementById("demo-pdf-btn");
 const demoWordBtn = document.getElementById("demo-word-btn");
 const demoLatexBtn = document.getElementById("demo-latex-btn");
 const debugLine = document.getElementById("debug-line");
-const APP_BUILD = "2026-02-21.6";
+const APP_BUILD = "2026-02-21.7";
 const BACKEND_API_URL = "https://paper-consistency-platform-api.onrender.com";
 
 let activeIssueId = null;
@@ -320,17 +320,22 @@ function startProgressAnimation() {
 
 async function checkBackendHealth(backendUrl) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 10000);
+  const timer = setTimeout(() => controller.abort("health-timeout"), 20000);
   try {
     const response = await fetch(`${backendUrl}/health`, {
       method: "GET",
       signal: controller.signal
     });
-    if (!response.ok) {
-      throw new Error(`health check status ${response.status}`);
+    if (response.ok) {
+      return { ok: true, warning: "" };
     }
+    return { ok: false, warning: `health check status ${response.status}` };
   } catch (error) {
-    throw new Error(`Cannot connect backend (${backendUrl}): ${error.message || "unknown error"}`);
+    const detail = error && error.message ? error.message : "unknown error";
+    if (controller.signal.aborted || detail.toLowerCase().includes("aborted")) {
+      return { ok: false, warning: "health check timeout, backend may be waking up" };
+    }
+    return { ok: false, warning: `health check failed: ${detail}` };
   } finally {
     clearTimeout(timer);
   }
@@ -347,13 +352,17 @@ async function runAnalysis() {
 
   runCheckBtn.disabled = true;
   runCheckBtn.textContent = "Running...";
-  setStatus("Checking backend and uploading file...", "Running");
+  setStatus("Checking backend health...", "Running");
   renderEngineDetail({}, "running");
   setDebugLine(`Build: ${APP_BUILD} | Backend: ${backendUrl}`);
   const timer = startProgressAnimation();
 
   try {
-    await checkBackendHealth(backendUrl);
+    const health = await checkBackendHealth(backendUrl);
+    if (!health.ok) {
+      setDebugLine(`Build: ${APP_BUILD} | Backend: ${backendUrl} | Warning: ${health.warning}`);
+      setStatus("Backend check warning. Continuing analysis request...", "Running");
+    }
     setStatus("Uploading file and running analysis...", "Running");
 
     const formData = new FormData();
