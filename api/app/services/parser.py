@@ -35,13 +35,21 @@ def parse_file_bytes(filename: str, data: bytes) -> str:
         except ImportError as exc:  # pragma: no cover - runtime dependency
             raise ValueError("PDF support requires pypdf. Please install dependencies.") from exc
 
-        reader = PdfReader(io.BytesIO(data))
+        try:
+            reader = PdfReader(io.BytesIO(data))
+        except Exception as exc:
+            raise ValueError(
+                "Failed to read PDF file. It may be encrypted, image-only, or malformed."
+            ) from exc
+
         pages: list[str] = []
         for page in reader.pages:
-            extracted = page.extract_text() or ""
+            try:
+                extracted = page.extract_text() or ""
+            except Exception:
+                continue
             if extracted.strip():
                 pages.append(extracted.strip())
         return "\n".join(pages)
 
     return _decode_text(data)
-
