@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from html import escape
 import os
 from typing import Any
 
@@ -14,12 +15,29 @@ from app.services.parser import parse_file_bytes
 
 DEFAULT_GLM_BASE_URL = "https://open.bigmodel.cn/api/paas/v4"
 DEFAULT_GLM_MODEL = "glm-4.5-flash"
+DEFAULT_FRONTEND_URL = "https://keji060822.github.io/paper-consistency-platform/"
+
+
+def _split_origins(csv_text: str) -> list[str]:
+    return [item.strip() for item in csv_text.split(",") if item.strip()]
+
+
+DEFAULT_CORS_ORIGINS = [
+    "http://127.0.0.1:8090",
+    "http://localhost:8090",
+    "http://127.0.0.1:5500",
+    "http://localhost:5500",
+    "https://keji060822.github.io",
+]
+
+runtime_origins = _split_origins(os.getenv("CORS_ALLOW_ORIGINS", ""))
+cors_origins = sorted(set(DEFAULT_CORS_ORIGINS + runtime_origins))
 
 app = FastAPI(title="Paper Consistency Platform API", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -28,14 +46,15 @@ app.add_middleware(
 
 @app.get("/", response_class=HTMLResponse)
 def root() -> str:
-    return """<!doctype html>
-<html lang="en">
+    frontend_url = escape(os.getenv("FRONTEND_URL", DEFAULT_FRONTEND_URL), quote=True)
+    return f"""<!doctype html>
+<html lang=\"zh-CN\">
   <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta charset=\"utf-8\" />
+    <meta name=\"viewport\" content=\"width=device-width,initial-scale=1\" />
     <title>论文一致性检测 API</title>
     <style>
-      :root {
+      :root {{
         color-scheme: light;
         --bg: #f7f9fc;
         --surface: #ffffff;
@@ -43,41 +62,41 @@ def root() -> str:
         --muted: #64748b;
         --primary: #2563eb;
         --border: #e2e8f0;
-      }
-      * { box-sizing: border-box; }
-      body {
+      }}
+      * {{ box-sizing: border-box; }}
+      body {{
         margin: 0;
         font-family: "Segoe UI", Arial, sans-serif;
         color: var(--text);
         background: linear-gradient(180deg, #ffffff, var(--bg));
-      }
-      .wrap {
+      }}
+      .wrap {{
         max-width: 760px;
         margin: 48px auto;
         padding: 0 20px;
-      }
-      .card {
+      }}
+      .card {{
         background: var(--surface);
         border: 1px solid var(--border);
         border-radius: 16px;
         padding: 24px;
         box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
-      }
-      h1 {
+      }}
+      h1 {{
         margin: 0 0 8px;
         font-size: 1.75rem;
-      }
-      p {
+      }}
+      p {{
         margin: 0;
         color: var(--muted);
-      }
-      .actions {
+      }}
+      .actions {{
         margin-top: 18px;
         display: flex;
         gap: 10px;
         flex-wrap: wrap;
-      }
-      a.btn {
+      }}
+      a.btn {{
         text-decoration: none;
         padding: 10px 14px;
         border-radius: 10px;
@@ -85,33 +104,33 @@ def root() -> str:
         color: var(--text);
         background: #fff;
         font-weight: 600;
-      }
-      a.btn.primary {
+      }}
+      a.btn.primary {{
         background: var(--primary);
         border-color: var(--primary);
         color: #fff;
-      }
-      code {
+      }}
+      code {{
         background: #eef2ff;
         padding: 2px 6px;
         border-radius: 6px;
         color: #1d4ed8;
-      }
-      ul {
+      }}
+      ul {{
         margin: 14px 0 0;
         padding-left: 18px;
-      }
+      }}
     </style>
   </head>
   <body>
-    <main class="wrap">
-      <section class="card">
+    <main class=\"wrap\">
+      <section class=\"card\">
         <h1>论文一致性检测 API</h1>
         <p>后端服务运行中。可通过下方入口查看文档、健康状态和前端页面。</p>
-        <div class="actions">
-          <a class="btn primary" href="/docs">打开 API 文档</a>
-          <a class="btn" href="/health">健康检查</a>
-          <a class="btn" href="http://127.0.0.1:8090" target="_blank" rel="noreferrer">打开前端页面</a>
+        <div class=\"actions\">
+          <a class=\"btn primary\" href=\"/docs\">打开 API 文档</a>
+          <a class=\"btn\" href=\"/health\">健康检查</a>
+          <a class=\"btn\" href=\"{frontend_url}\" target=\"_blank\" rel=\"noreferrer\">打开前端页面</a>
         </div>
         <ul>
           <li>分析接口: <code>POST /api/analyze</code></li>
