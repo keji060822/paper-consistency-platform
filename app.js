@@ -267,11 +267,39 @@ function setStatus(text, badgeText, isSuccess = false) {
 }
 
 function renderEngineDetail(engineInfo, sourceLabel) {
-  const attempted = Boolean(engineInfo && (engineInfo.glm_attempted || engineInfo.glm_enabled));
-  const used = Boolean(engineInfo && engineInfo.glm_used);
   const source = sourceLabel || "heuristic";
-  const modeText = source === "hybrid" ? "Hybrid" : source === "preview" ? "Preview" : "Heuristic";
-  engineDetail.textContent = `Engine: ${modeText}. AI called: ${attempted ? "Yes" : "No"}. AI issues used: ${used ? "Yes" : "No"}.`;
+  const attemptedRaw =
+    engineInfo && Object.prototype.hasOwnProperty.call(engineInfo, "glm_attempted")
+      ? engineInfo.glm_attempted
+      : engineInfo && Object.prototype.hasOwnProperty.call(engineInfo, "glm_enabled")
+        ? engineInfo.glm_enabled
+        : null;
+  const usedRaw =
+    engineInfo && Object.prototype.hasOwnProperty.call(engineInfo, "glm_used")
+      ? engineInfo.glm_used
+      : null;
+
+  const attemptedText =
+    attemptedRaw === null || typeof attemptedRaw === "undefined"
+      ? "Pending"
+      : attemptedRaw
+        ? "Yes"
+        : "No";
+  const usedText =
+    usedRaw === null || typeof usedRaw === "undefined" ? "Pending" : usedRaw ? "Yes" : "No";
+
+  let modeText = "Heuristic";
+  if (source === "hybrid") {
+    modeText = "Hybrid";
+  } else if (source === "preview") {
+    modeText = "Preview";
+  } else if (source === "running") {
+    modeText = "Running";
+  } else if (source === "failed") {
+    modeText = "Failed";
+  }
+
+  engineDetail.textContent = `Engine: ${modeText}. AI called: ${attemptedText}. AI issues used: ${usedText}.`;
 }
 
 function startProgressAnimation() {
@@ -295,7 +323,7 @@ async function runAnalysis() {
   runCheckBtn.disabled = true;
   runCheckBtn.textContent = "Running...";
   setStatus("Uploading file and running analysis...", "Running");
-  renderEngineDetail({ glm_attempted: false, glm_used: false }, "heuristic");
+  renderEngineDetail({}, "running");
   const timer = startProgressAnimation();
 
   try {
@@ -337,6 +365,7 @@ async function runAnalysis() {
   } catch (error) {
     progressBar.style.width = "0";
     setStatus(`Analysis failed: ${error.message}`, "Failed");
+    renderEngineDetail(lastEngineInfo, "failed");
     runCheckBtn.textContent = "Retry";
   } finally {
     clearInterval(timer);
