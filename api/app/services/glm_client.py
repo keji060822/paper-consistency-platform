@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import socket
 import urllib.error
 import urllib.request
 from typing import Any
@@ -13,6 +14,7 @@ class GLMClient:
         self.base_url = base_url.rstrip("/")
         self.model = model.strip()
         self.timeout = timeout
+        self.last_error = ""
 
     def _extract_json_payload(self, content: str) -> dict[str, Any]:
         content = content.strip()
@@ -25,7 +27,9 @@ class GLMClient:
             return json.loads(match.group(0))
 
     def review(self, sentences: list[dict[str, str]]) -> list[dict[str, Any]]:
+        self.last_error = ""
         if not self.api_key:
+            self.last_error = "Missing API key."
             return []
 
         prompt = (
@@ -60,9 +64,23 @@ class GLMClient:
         try:
             with urllib.request.urlopen(req, timeout=self.timeout) as response:
                 body = response.read().decode("utf-8")
-        except urllib.error.URLError:
+        except urllib.error.HTTPError as exc:
+            detail = ""
+            try:
+                detail = exc.read().decode("utf-8", "ignore")
+            except Exception:
+                detail = ""
+            self.last_error = f"GLM HTTP {exc.code}: {detail[:180].strip() or 'request rejected'}"
             return []
-        except urllib.error.HTTPError:
+        except urllib.error.URLError as exc:
+            reason = getattr(exc, "reason", "") or str(exc)
+            self.last_error = f"GLM network error: {str(reason)[:180]}"
+            return []
+        except socket.timeout:
+            self.last_error = "The read operation timed out"
+            return []
+        except TimeoutError:
+            self.last_error = "The read operation timed out"
             return []
 
         try:
@@ -71,8 +89,9 @@ class GLMClient:
             parsed = self._extract_json_payload(content)
             issues = parsed.get("issues", [])
             if not isinstance(issues, list):
+                self.last_error = "GLM response JSON has no valid issues list."
                 return []
             return [item for item in issues if isinstance(item, dict)]
         except (KeyError, IndexError, ValueError, TypeError, json.JSONDecodeError):
+            self.last_error = "GLM response parse failed."
             return []
-

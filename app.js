@@ -22,7 +22,7 @@ const demoPdfBtn = document.getElementById("demo-pdf-btn");
 const demoWordBtn = document.getElementById("demo-word-btn");
 const demoLatexBtn = document.getElementById("demo-latex-btn");
 const debugLine = document.getElementById("debug-line");
-const APP_BUILD = "2026-02-21.4";
+const APP_BUILD = "2026-02-21.5";
 const BACKEND_API_URL = "https://paper-consistency-platform-api.onrender.com";
 
 let activeIssueId = null;
@@ -384,8 +384,14 @@ async function runAnalysis() {
     renderPaper(currentSentences);
     renderIssues();
     renderEngineDetail(lastEngineInfo, lastEngineSource);
+    const glmErrorText =
+      lastEngineInfo && lastEngineInfo.glm_error ? ` | GLM error: ${lastEngineInfo.glm_error}` : "";
+    const glmInputText =
+      lastEngineInfo && lastEngineInfo.glm_input_sentences
+        ? ` | GLM input sentences: ${lastEngineInfo.glm_input_sentences}`
+        : "";
     setDebugLine(
-      `Build: ${APP_BUILD} | Backend: ${backendUrl} | Engine source: ${lastEngineSource} | AI called: ${lastEngineInfo.glm_attempted ? "Yes" : "No"}`
+      `Build: ${APP_BUILD} | Backend: ${backendUrl} | Engine source: ${lastEngineSource} | AI called: ${lastEngineInfo.glm_attempted ? "Yes" : "No"}${glmInputText}${glmErrorText}`
     );
     progressBar.style.width = "100%";
     setStatus(

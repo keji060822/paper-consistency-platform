@@ -15,10 +15,10 @@ from app.services.parser import parse_file_bytes
 
 DEFAULT_GLM_BASE_URL = "https://open.bigmodel.cn/api/paas/v4"
 DEFAULT_GLM_MODEL = "glm-4.6v"
-DEFAULT_GLM_TIMEOUT_SECONDS = 15
-DEFAULT_GLM_MAX_SENTENCES = 120
-DEFAULT_GLM_MAX_TOTAL_CHARS = 18000
-DEFAULT_GLM_MAX_SENTENCE_CHARS = 400
+DEFAULT_GLM_TIMEOUT_SECONDS = 35
+DEFAULT_GLM_MAX_SENTENCES = 60
+DEFAULT_GLM_MAX_TOTAL_CHARS = 12000
+DEFAULT_GLM_MAX_SENTENCE_CHARS = 300
 DEFAULT_FRONTEND_URL = "https://keji060822.github.io/paper-consistency-platform/"
 
 
@@ -226,6 +226,20 @@ async def analyze(
                     timeout=glm_timeout_seconds,
                 )
                 raw_glm_issues = client.review(review_sentences)
+                if not raw_glm_issues and client.last_error:
+                    # Retry once with a much smaller slice to improve robustness on large uploads.
+                    retry_sentences = review_sentences[:20]
+                    retry_client = GLMClient(
+                        api_key=runtime_api_key,
+                        base_url=base_url,
+                        model=model,
+                        timeout=glm_timeout_seconds,
+                    )
+                    raw_glm_issues = retry_client.review(retry_sentences)
+                    glm_input_sentences = len(retry_sentences)
+                    glm_error = retry_client.last_error
+                else:
+                    glm_error = client.last_error
                 glm_issues = normalize_glm_issues(raw_glm_issues)
                 if glm_issues:
                     result["issues"] = merge_issues(result["issues"], glm_issues)
