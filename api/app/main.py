@@ -14,7 +14,7 @@ from app.services.parser import parse_file_bytes
 
 
 DEFAULT_GLM_BASE_URL = "https://open.bigmodel.cn/api/paas/v4"
-DEFAULT_GLM_MODEL = "glm-4.5-flash"
+DEFAULT_GLM_MODEL = "glm-4.6v"
 DEFAULT_GLM_TIMEOUT_SECONDS = 15
 DEFAULT_GLM_MAX_SENTENCES = 120
 DEFAULT_GLM_MAX_TOTAL_CHARS = 18000
