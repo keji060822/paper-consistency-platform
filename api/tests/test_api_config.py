@@ -36,6 +36,7 @@ class ApiConfigTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         body = response.json()
         self.assertTrue(body["engine"]["glm_enabled"])
+        self.assertTrue(body["engine"]["glm_attempted"])
 
     def test_health_allows_null_origin_for_file_preview(self) -> None:
         client = TestClient(app)

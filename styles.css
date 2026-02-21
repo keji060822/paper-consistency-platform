@@ -200,6 +200,31 @@ body {
   flex-wrap: wrap;
 }
 
+.demo-box {
+  margin-top: 4px;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 10px;
+}
+
+.demo-title {
+  margin: 0 0 8px;
+  font-size: 0.84rem;
+  color: #334155;
+}
+
+.demo-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.demo-btn {
+  min-height: 36px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+}
+
 .tag {
   border-radius: 999px;
   padding: 4px 10px;

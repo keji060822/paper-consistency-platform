@@ -17,12 +17,101 @@ const paperView = document.getElementById("paper-view");
 const glmBaseUrlInput = document.getElementById("glm-base-url");
 const glmModelInput = document.getElementById("glm-model");
 const glmApiKeyInput = document.getElementById("glm-api-key");
+const engineDetail = document.getElementById("engine-detail");
+const demoPdfBtn = document.getElementById("demo-pdf-btn");
+const demoWordBtn = document.getElementById("demo-word-btn");
+const demoLatexBtn = document.getElementById("demo-latex-btn");
 const BACKEND_API_URL = "https://paper-consistency-platform-api.onrender.com";
 
 let activeIssueId = null;
 let currentIssues = [];
 let currentSentences = collectInitialSentences();
 let lastEngineSource = "preview";
+let lastEngineInfo = { glm_attempted: false, glm_used: false };
+
+const DEMO_DATASETS = {
+  pdf: {
+    label: "PDF Demo",
+    sentences: [
+      {
+        id: "s-1",
+        text: "Section 2 defines the key metric as threshold voltage window for all experiments."
+      },
+      {
+        id: "s-2",
+        text: "Figure 4 reports improved robustness under high-temperature stress."
+      },
+      {
+        id: "s-3",
+        text: "Section 3 renames the same metric as switching threshold bandwidth."
+      }
+    ],
+    issues: [
+      {
+        id: "d-pdf-1",
+        type: "term",
+        severity: "medium",
+        sentenceId: "s-3",
+        title: "Terminology Drift",
+        detail: "The metric name changes from threshold voltage window to switching threshold bandwidth."
+      }
+    ]
+  },
+  word: {
+    label: "Word Demo",
+    sentences: [
+      {
+        id: "s-1",
+        text: "The draft claims the model stability increases from 25C to 85C."
+      },
+      {
+        id: "s-2",
+        text: "In the discussion chapter, the same experiment is described as decreasing stability at 85C."
+      },
+      {
+        id: "s-3",
+        text: "The contradiction appears in two adjacent subsections."
+      }
+    ],
+    issues: [
+      {
+        id: "d-word-1",
+        type: "logic",
+        severity: "high",
+        sentenceId: "s-2",
+        title: "Logic Conflict",
+        detail: "The trend of stability is opposite between method and discussion sections."
+      }
+    ]
+  },
+  latex: {
+    label: "LaTeX Demo",
+    sentences: [
+      {
+        id: "s-1",
+        text: "Figure 7 caption states that the read window shrinks at high temperature."
+      },
+      {
+        id: "s-2",
+        text: "The main paragraph above Figure 7 says the read window expands under the same condition."
+      },
+      {
+        id: "s-3",
+        text: "Equation (9) remains unchanged and does not support expansion."
+      }
+    ],
+    issues: [
+      {
+        id: "d-latex-1",
+        type: "citation_figure",
+        severity: "high",
+        sentenceId: "s-2",
+        title: "Figure/Text Mismatch",
+        detail: "Figure caption and main text describe opposite read-window behavior."
+      }
+    ]
+  }
+};
 
 function collectInitialSentences() {
   const nodes = Array.from(document.querySelectorAll("[data-sentence-id]"));
@@ -177,6 +266,14 @@ function setStatus(text, badgeText, isSuccess = false) {
   statusBadge.classList.toggle("badge-success", isSuccess);
 }
 
+function renderEngineDetail(engineInfo, sourceLabel) {
+  const attempted = Boolean(engineInfo && (engineInfo.glm_attempted || engineInfo.glm_enabled));
+  const used = Boolean(engineInfo && engineInfo.glm_used);
+  const source = sourceLabel || "heuristic";
+  const modeText = source === "hybrid" ? "Hybrid" : source === "preview" ? "Preview" : "Heuristic";
+  engineDetail.textContent = `Engine: ${modeText}. AI called: ${attempted ? "Yes" : "No"}. AI issues used: ${used ? "Yes" : "No"}.`;
+}
+
 function startProgressAnimation() {
   let value = 8;
   progressBar.style.width = `${value}%`;
@@ -198,6 +295,7 @@ async function runAnalysis() {
   runCheckBtn.disabled = true;
   runCheckBtn.textContent = "Running...";
   setStatus("Uploading file and running analysis...", "Running");
+  renderEngineDetail({ glm_attempted: false, glm_used: false }, "heuristic");
   const timer = startProgressAnimation();
 
   try {
@@ -223,10 +321,12 @@ async function runAnalysis() {
     currentSentences = normalizeSentences(payload.sentences);
     currentIssues = normalizeIssues(payload.issues);
     lastEngineSource = payload.source || "heuristic";
+    lastEngineInfo = payload.engine || {};
     activeIssueId = null;
 
     renderPaper(currentSentences);
     renderIssues();
+    renderEngineDetail(lastEngineInfo, lastEngineSource);
     progressBar.style.width = "100%";
     setStatus(
       `Completed with ${lastEngineSource} engine. ${currentIssues.length} issues found.`,
@@ -242,6 +342,25 @@ async function runAnalysis() {
     clearInterval(timer);
     runCheckBtn.disabled = false;
   }
+}
+
+function loadDemo(kind) {
+  const dataset = DEMO_DATASETS[kind];
+  if (!dataset) {
+    return;
+  }
+
+  currentSentences = dataset.sentences.map((item) => ({ ...item }));
+  currentIssues = dataset.issues.map((item) => ({ ...item }));
+  lastEngineSource = "preview";
+  lastEngineInfo = { glm_attempted: false, glm_used: false };
+  activeIssueId = null;
+
+  renderPaper(currentSentences);
+  renderIssues();
+  progressBar.style.width = "100%";
+  setStatus(`${dataset.label} loaded. Upload your file to run real analysis.`, "Demo Loaded", true);
+  renderEngineDetail(lastEngineInfo, lastEngineSource);
 }
 
 function exportReport() {
@@ -295,5 +414,9 @@ issueFilter.addEventListener("change", () => {
   activeIssueId = null;
   renderIssues();
 });
+demoPdfBtn.addEventListener("click", () => loadDemo("pdf"));
+demoWordBtn.addEventListener("click", () => loadDemo("word"));
+demoLatexBtn.addEventListener("click", () => loadDemo("latex"));
 
 renderKpi([]);
+renderEngineDetail(lastEngineInfo, lastEngineSource);

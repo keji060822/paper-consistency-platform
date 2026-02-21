@@ -171,7 +171,9 @@ async def analyze(
 
     runtime_api_key = api_key.strip() or os.getenv("GLM_API_KEY", "").strip()
     glm_used = False
+    glm_attempted = False
     if runtime_api_key:
+        glm_attempted = True
         client = GLMClient(api_key=runtime_api_key, base_url=base_url, model=model)
         raw_glm_issues = client.review(result["sentences"])
         glm_issues = normalize_glm_issues(raw_glm_issues)
@@ -182,6 +184,7 @@ async def analyze(
     result["source"] = "hybrid" if glm_used else "heuristic"
     result["engine"] = {
         "glm_enabled": bool(runtime_api_key),
+        "glm_attempted": glm_attempted,
         "glm_used": glm_used,
         "base_url": base_url,
         "model": model,
