@@ -14,10 +14,10 @@ const kpiHigh = document.getElementById("kpi-high");
 const kpiMedium = document.getElementById("kpi-medium");
 const kpiLow = document.getElementById("kpi-low");
 const paperView = document.getElementById("paper-view");
-const backendUrlInput = document.getElementById("backend-url");
 const glmBaseUrlInput = document.getElementById("glm-base-url");
 const glmModelInput = document.getElementById("glm-model");
 const glmApiKeyInput = document.getElementById("glm-api-key");
+const BACKEND_API_URL = "https://paper-consistency-platform-api.onrender.com";
 
 let activeIssueId = null;
 let currentIssues = [];
@@ -193,11 +193,7 @@ async function runAnalysis() {
     return;
   }
 
-  const backendUrl = backendUrlInput.value.trim().replace(/\/+$/, "");
-  if (!backendUrl) {
-    setStatus("Please provide a backend URL.", "Config Error");
-    return;
-  }
+  const backendUrl = BACKEND_API_URL;
 
   runCheckBtn.disabled = true;
   runCheckBtn.textContent = "Running...";

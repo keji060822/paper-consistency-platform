@@ -52,9 +52,9 @@ cd paper-consistency-platform-preview
 
 - `http://127.0.0.1:8090`
 
-Make sure **Backend API URL** in UI is:
+Frontend uses a fixed production backend URL:
 
-- `http://127.0.0.1:8000`
+- `https://paper-consistency-platform-api.onrender.com`
 
 Stop all:
 
