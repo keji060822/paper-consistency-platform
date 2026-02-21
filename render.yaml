@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: paper-consistency-platform-api
+    runtime: python
+    rootDir: api
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: GLM_API_KEY
+        sync: false
+      - key: FRONTEND_URL
+        value: https://keji060822.github.io/paper-consistency-platform/
+      - key: CORS_ALLOW_ORIGINS
+        value: https://keji060822.github.io
