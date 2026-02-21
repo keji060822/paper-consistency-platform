@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Paper Consistency Platform - Static Preview</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to main content</a>
+    <div class="noise"></div>
+
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M5 5h9l5 5v9H5V5Z" stroke="currentColor" stroke-width="1.5" />
+            <path d="M14 5v5h5" stroke="currentColor" stroke-width="1.5" />
+            <path d="M8 13h8M8 16h6" stroke="currentColor" stroke-width="1.5" />
+          </svg>
+        </div>
+        <div>
+          <p class="brand-name">Paper Consistency Platform</p>
+          <p class="brand-sub">PDF / LaTeX / Word Consistency Check</p>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <span class="badge badge-success">Preview Mode</span>
+        <button id="run-check-btn" class="btn btn-primary" type="button">
+          Run Check
+        </button>
+      </div>
+    </header>
+
+    <main id="main-content" class="layout">
+      <section class="card control-panel" aria-label="Control panel">
+        <h1>Paper Consistency Checker</h1>
+        <p class="lead">
+          Upload a paper and the system will mark exact sentences with terminology drift,
+          logic conflicts, and citation/figure inconsistency.
+        </p>
+
+        <div class="upload-box">
+          <label for="paper-file" class="upload-label">Upload paper file</label>
+          <div class="file-picker-row">
+            <button id="pick-file-btn" class="btn btn-secondary file-btn" type="button">
+              Choose File
+            </button>
+            <span id="selected-file" class="file-name">No file selected</span>
+          </div>
+          <input id="paper-file" class="sr-only-file" type="file" accept=".pdf,.docx,.zip,.tex" />
+          <div class="format-tags">
+            <span class="tag">PDF</span>
+            <span class="tag">DOCX</span>
+            <span class="tag">LaTeX ZIP</span>
+          </div>
+        </div>
+
+        <div class="settings-grid">
+          <div class="field">
+            <label for="language">Paper language</label>
+            <select id="language">
+              <option>Bilingual (EN + ZH)</option>
+              <option>English</option>
+              <option>Chinese</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="mode">Detection strategy</label>
+            <select id="mode">
+              <option>Rules/NLP + LLM Review</option>
+              <option>Rules/NLP only</option>
+              <option>LLM only</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="glm-box">
+          <h2>Backend + GLM Config</h2>
+          <div class="field">
+            <label for="backend-url">Backend API URL</label>
+            <input id="backend-url" type="text" value="http://127.0.0.1:8000" />
+          </div>
+          <div class="field">
+            <label for="glm-base-url">Base URL</label>
+            <input id="glm-base-url" type="text" value="https://open.bigmodel.cn/api/paas/v4" />
+          </div>
+          <div class="field">
+            <label for="glm-model">Model</label>
+            <input id="glm-model" type="text" value="glm-4.5-flash" />
+          </div>
+          <div class="field">
+            <label for="glm-api-key">API Key</label>
+            <input
+              id="glm-api-key"
+              type="password"
+              value=""
+              placeholder="Paste GLM API key (local dev only)"
+              autocomplete="off"
+            />
+          </div>
+          <p class="muted">
+            Note: Prefer backend env var (`GLM_API_KEY`) for production. UI key input is for local debugging only.
+          </p>
+        </div>
+      </section>
+
+      <section class="report-area">
+        <div class="kpi-grid" aria-label="Summary metrics">
+          <article class="card kpi">
+            <p>Total Issues</p>
+            <strong id="kpi-total">0</strong>
+          </article>
+          <article class="card kpi">
+            <p>High Risk</p>
+            <strong id="kpi-high">0</strong>
+          </article>
+          <article class="card kpi">
+            <p>Medium Risk</p>
+            <strong id="kpi-medium">0</strong>
+          </article>
+          <article class="card kpi">
+            <p>Low Risk</p>
+            <strong id="kpi-low">0</strong>
+          </article>
+        </div>
+
+        <div class="status-row card">
+          <div class="status-text">
+            <span id="status-badge" class="badge">Waiting</span>
+            <p id="status-message">Click "Run Check" to generate a sample report.</p>
+          </div>
+          <div class="status-actions">
+            <label class="field-inline" for="issue-filter">Filter issues</label>
+            <select id="issue-filter">
+              <option value="all">All</option>
+              <option value="term">Terminology</option>
+              <option value="logic">Logic</option>
+              <option value="citation_figure">Citation/Figure</option>
+            </select>
+            <button id="export-btn" class="btn btn-secondary" type="button">
+              Export Report
+            </button>
+          </div>
+          <div class="progress-wrap" aria-hidden="true">
+            <div id="progress-bar" class="progress-bar"></div>
+          </div>
+        </div>
+
+        <div class="report-grid">
+          <section class="card issue-panel" aria-label="Issue list">
+            <div class="panel-head">
+              <h2>Issue List</h2>
+              <p id="issue-count" class="muted">0 items</p>
+            </div>
+            <ul id="issue-list" class="issue-list"></ul>
+          </section>
+
+          <section class="card sentence-panel" aria-label="Sentence localization">
+            <div class="panel-head">
+              <h2>Sentence-Level Localization</h2>
+              <p class="muted">Click an issue on the left to jump and highlight the target sentence.</p>
+            </div>
+            <article class="paper-view" id="paper-view">
+              <h3>2. Method and Experimental Setup</h3>
+              <p data-sentence-id="s-1">
+                We implemented a ferroelectric device compact model to evaluate read stability under temperature variation.
+              </p>
+              <p data-sentence-id="s-2">
+                In this study, we consistently refer to this parameter as the threshold voltage window (Vth Window).
+              </p>
+              <p data-sentence-id="s-3">
+                Figure 4 demonstrates that the proposed method improves robustness in high-temperature conditions.
+              </p>
+              <h3>3. Results and Discussion</h3>
+              <p data-sentence-id="s-4">
+                For convenience, the later section replaces "threshold voltage window" with "switching threshold bandwidth," which changes the original definition.
+              </p>
+              <p data-sentence-id="s-5">
+                Contrary to Section 2, the model exhibits lower robustness when temperature increases from 25C to 85C.
+              </p>
+              <p data-sentence-id="s-6">
+                As shown in the caption of Figure 4, the curve indicates reduced robustness at higher temperature.
+              </p>
+            </article>
+          </section>
+        </div>
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
