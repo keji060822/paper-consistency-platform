@@ -37,6 +37,12 @@ class ApiConfigTests(unittest.TestCase):
         body = response.json()
         self.assertTrue(body["engine"]["glm_enabled"])
 
+    def test_health_allows_null_origin_for_file_preview(self) -> None:
+        client = TestClient(app)
+        response = client.get("/health", headers={"Origin": "null"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers.get("access-control-allow-origin"), "null")
+
 
 if __name__ == "__main__":
     unittest.main()

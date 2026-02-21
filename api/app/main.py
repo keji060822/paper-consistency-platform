@@ -28,6 +28,7 @@ DEFAULT_CORS_ORIGINS = [
     "http://127.0.0.1:5500",
     "http://localhost:5500",
     "https://keji060822.github.io",
+    "null",
 ]
 
 runtime_origins = _split_origins(os.getenv("CORS_ALLOW_ORIGINS", ""))
