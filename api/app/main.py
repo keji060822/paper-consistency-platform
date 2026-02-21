@@ -1,0 +1,169 @@
+from __future__ import annotations
+
+import os
+from typing import Any
+
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
+
+from app.services.analyzer import analyze_text, merge_issues, normalize_glm_issues
+from app.services.glm_client import GLMClient
+from app.services.parser import parse_file_bytes
+
+
+DEFAULT_GLM_BASE_URL = "https://open.bigmodel.cn/api/paas/v4"
+DEFAULT_GLM_MODEL = "glm-4.5-flash"
+
+app = FastAPI(title="Paper Consistency Platform API", version="0.1.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@app.get("/", response_class=HTMLResponse)
+def root() -> str:
+    return """<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>论文一致性检测 API</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f7f9fc;
+        --surface: #ffffff;
+        --text: #0f172a;
+        --muted: #64748b;
+        --primary: #2563eb;
+        --border: #e2e8f0;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "Segoe UI", Arial, sans-serif;
+        color: var(--text);
+        background: linear-gradient(180deg, #ffffff, var(--bg));
+      }
+      .wrap {
+        max-width: 760px;
+        margin: 48px auto;
+        padding: 0 20px;
+      }
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+      }
+      h1 {
+        margin: 0 0 8px;
+        font-size: 1.75rem;
+      }
+      p {
+        margin: 0;
+        color: var(--muted);
+      }
+      .actions {
+        margin-top: 18px;
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      a.btn {
+        text-decoration: none;
+        padding: 10px 14px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        color: var(--text);
+        background: #fff;
+        font-weight: 600;
+      }
+      a.btn.primary {
+        background: var(--primary);
+        border-color: var(--primary);
+        color: #fff;
+      }
+      code {
+        background: #eef2ff;
+        padding: 2px 6px;
+        border-radius: 6px;
+        color: #1d4ed8;
+      }
+      ul {
+        margin: 14px 0 0;
+        padding-left: 18px;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="wrap">
+      <section class="card">
+        <h1>论文一致性检测 API</h1>
+        <p>后端服务运行中。可通过下方入口查看文档、健康状态和前端页面。</p>
+        <div class="actions">
+          <a class="btn primary" href="/docs">打开 API 文档</a>
+          <a class="btn" href="/health">健康检查</a>
+          <a class="btn" href="http://127.0.0.1:8090" target="_blank" rel="noreferrer">打开前端页面</a>
+        </div>
+        <ul>
+          <li>分析接口: <code>POST /api/analyze</code></li>
+          <li>状态接口: <code>GET /health</code></li>
+        </ul>
+      </section>
+    </main>
+  </body>
+</html>"""
+
+
+@app.get("/health")
+def health() -> dict[str, str]:
+    return {"status": "ok"}
+
+
+@app.post("/api/analyze")
+async def analyze(
+    file: UploadFile = File(...),
+    base_url: str = Form(DEFAULT_GLM_BASE_URL),
+    model: str = Form(DEFAULT_GLM_MODEL),
+    api_key: str = Form(""),
+) -> dict[str, Any]:
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+
+    try:
+        text = parse_file_bytes(file.filename or "uploaded.txt", content)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    if not text.strip():
+        raise HTTPException(status_code=400, detail="No readable text found in uploaded file.")
+
+    result = analyze_text(text)
+
+    runtime_api_key = api_key.strip() or os.getenv("GLM_API_KEY", "").strip()
+    glm_used = False
+    if runtime_api_key:
+        client = GLMClient(api_key=runtime_api_key, base_url=base_url, model=model)
+        raw_glm_issues = client.review(result["sentences"])
+        glm_issues = normalize_glm_issues(raw_glm_issues)
+        if glm_issues:
+            result["issues"] = merge_issues(result["issues"], glm_issues)
+            glm_used = True
+
+    result["source"] = "hybrid" if glm_used else "heuristic"
+    result["engine"] = {
+        "glm_enabled": bool(runtime_api_key),
+        "glm_used": glm_used,
+        "base_url": base_url,
+        "model": model,
+    }
+    return result
