@@ -21,6 +21,8 @@ const engineDetail = document.getElementById("engine-detail");
 const demoPdfBtn = document.getElementById("demo-pdf-btn");
 const demoWordBtn = document.getElementById("demo-word-btn");
 const demoLatexBtn = document.getElementById("demo-latex-btn");
+const debugLine = document.getElementById("debug-line");
+const APP_BUILD = "2026-02-21.4";
 const BACKEND_API_URL = "https://paper-consistency-platform-api.onrender.com";
 
 let activeIssueId = null;
@@ -266,6 +268,11 @@ function setStatus(text, badgeText, isSuccess = false) {
   statusBadge.classList.toggle("badge-success", isSuccess);
 }
 
+function setDebugLine(text) {
+  if (!debugLine) return;
+  debugLine.textContent = text;
+}
+
 function renderEngineDetail(engineInfo, sourceLabel) {
   const source = sourceLabel || "heuristic";
   const attemptedRaw =
@@ -311,6 +318,24 @@ function startProgressAnimation() {
   }, 220);
 }
 
+async function checkBackendHealth(backendUrl) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10000);
+  try {
+    const response = await fetch(`${backendUrl}/health`, {
+      method: "GET",
+      signal: controller.signal
+    });
+    if (!response.ok) {
+      throw new Error(`health check status ${response.status}`);
+    }
+  } catch (error) {
+    throw new Error(`Cannot connect backend (${backendUrl}): ${error.message || "unknown error"}`);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function runAnalysis() {
   const file = paperFileInput.files && paperFileInput.files[0];
   if (!file) {
@@ -322,11 +347,15 @@ async function runAnalysis() {
 
   runCheckBtn.disabled = true;
   runCheckBtn.textContent = "Running...";
-  setStatus("Uploading file and running analysis...", "Running");
+  setStatus("Checking backend and uploading file...", "Running");
   renderEngineDetail({}, "running");
+  setDebugLine(`Build: ${APP_BUILD} | Backend: ${backendUrl}`);
   const timer = startProgressAnimation();
 
   try {
+    await checkBackendHealth(backendUrl);
+    setStatus("Uploading file and running analysis...", "Running");
+
     const formData = new FormData();
     formData.append("file", file);
     formData.append("base_url", glmBaseUrlInput.value.trim());
@@ -355,6 +384,9 @@ async function runAnalysis() {
     renderPaper(currentSentences);
     renderIssues();
     renderEngineDetail(lastEngineInfo, lastEngineSource);
+    setDebugLine(
+      `Build: ${APP_BUILD} | Backend: ${backendUrl} | Engine source: ${lastEngineSource} | AI called: ${lastEngineInfo.glm_attempted ? "Yes" : "No"}`
+    );
     progressBar.style.width = "100%";
     setStatus(
       `Completed with ${lastEngineSource} engine. ${currentIssues.length} issues found.`,
@@ -364,8 +396,10 @@ async function runAnalysis() {
     runCheckBtn.textContent = "Run Again";
   } catch (error) {
     progressBar.style.width = "0";
-    setStatus(`Analysis failed: ${error.message}`, "Failed");
+    const detail = error && error.message ? error.message : "unknown error";
+    setStatus(`Analysis failed: ${detail}`, "Failed");
     renderEngineDetail(lastEngineInfo, "failed");
+    setDebugLine(`Build: ${APP_BUILD} | Backend: ${backendUrl} | Error: ${detail}`);
     runCheckBtn.textContent = "Retry";
   } finally {
     clearInterval(timer);
@@ -449,3 +483,4 @@ demoLatexBtn.addEventListener("click", () => loadDemo("latex"));
 
 renderKpi([]);
 renderEngineDetail(lastEngineInfo, lastEngineSource);
+setDebugLine(`Build: ${APP_BUILD} | Backend: ${BACKEND_API_URL}`);
