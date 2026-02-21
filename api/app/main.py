@@ -15,11 +15,49 @@ from app.services.parser import parse_file_bytes
 
 DEFAULT_GLM_BASE_URL = "https://open.bigmodel.cn/api/paas/v4"
 DEFAULT_GLM_MODEL = "glm-4.5-flash"
+DEFAULT_GLM_TIMEOUT_SECONDS = 15
+DEFAULT_GLM_MAX_SENTENCES = 120
+DEFAULT_GLM_MAX_TOTAL_CHARS = 18000
+DEFAULT_GLM_MAX_SENTENCE_CHARS = 400
 DEFAULT_FRONTEND_URL = "https://keji060822.github.io/paper-consistency-platform/"
 
 
 def _split_origins(csv_text: str) -> list[str]:
     return [item.strip() for item in csv_text.split(",") if item.strip()]
+
+
+def _to_int_env(name: str, default_value: int) -> int:
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return default_value
+    try:
+        value = int(raw)
+    except ValueError:
+        return default_value
+    return value if value > 0 else default_value
+
+
+def _build_glm_input_sentences(sentences: list[dict[str, str]]) -> list[dict[str, str]]:
+    max_sentences = _to_int_env("GLM_MAX_SENTENCES", DEFAULT_GLM_MAX_SENTENCES)
+    max_total_chars = _to_int_env("GLM_MAX_TOTAL_CHARS", DEFAULT_GLM_MAX_TOTAL_CHARS)
+    max_sentence_chars = _to_int_env("GLM_MAX_SENTENCE_CHARS", DEFAULT_GLM_MAX_SENTENCE_CHARS)
+
+    selected: list[dict[str, str]] = []
+    total_chars = 0
+    for idx, item in enumerate(sentences):
+        sid = str(item.get("id", f"s-{idx + 1}")).strip() or f"s-{idx + 1}"
+        text = str(item.get("text", "")).strip()
+        if not text:
+            continue
+        clipped = text[:max_sentence_chars]
+        projected_chars = total_chars + len(clipped)
+        if selected and projected_chars > max_total_chars:
+            break
+        selected.append({"id": sid, "text": clipped})
+        total_chars = projected_chars
+        if len(selected) >= max_sentences:
+            break
+    return selected
 
 
 DEFAULT_CORS_ORIGINS = [
@@ -172,20 +210,37 @@ async def analyze(
     runtime_api_key = api_key.strip() or os.getenv("GLM_API_KEY", "").strip()
     glm_used = False
     glm_attempted = False
+    glm_error = ""
+    glm_timeout_seconds = _to_int_env("GLM_TIMEOUT_SECONDS", DEFAULT_GLM_TIMEOUT_SECONDS)
+    glm_input_sentences = 0
     if runtime_api_key:
         glm_attempted = True
-        client = GLMClient(api_key=runtime_api_key, base_url=base_url, model=model)
-        raw_glm_issues = client.review(result["sentences"])
-        glm_issues = normalize_glm_issues(raw_glm_issues)
-        if glm_issues:
-            result["issues"] = merge_issues(result["issues"], glm_issues)
-            glm_used = True
+        try:
+            review_sentences = _build_glm_input_sentences(result["sentences"])
+            glm_input_sentences = len(review_sentences)
+            if review_sentences:
+                client = GLMClient(
+                    api_key=runtime_api_key,
+                    base_url=base_url,
+                    model=model,
+                    timeout=glm_timeout_seconds,
+                )
+                raw_glm_issues = client.review(review_sentences)
+                glm_issues = normalize_glm_issues(raw_glm_issues)
+                if glm_issues:
+                    result["issues"] = merge_issues(result["issues"], glm_issues)
+                    glm_used = True
+        except Exception as exc:  # pragma: no cover - protective fallback
+            glm_error = str(exc).strip()[:200]
 
     result["source"] = "hybrid" if glm_used else "heuristic"
     result["engine"] = {
         "glm_enabled": bool(runtime_api_key),
         "glm_attempted": glm_attempted,
         "glm_used": glm_used,
+        "glm_timeout_seconds": glm_timeout_seconds,
+        "glm_input_sentences": glm_input_sentences,
+        "glm_error": glm_error,
         "base_url": base_url,
         "model": model,
     }
