@@ -22,7 +22,7 @@ const demoPdfBtn = document.getElementById("demo-pdf-btn");
 const demoWordBtn = document.getElementById("demo-word-btn");
 const demoLatexBtn = document.getElementById("demo-latex-btn");
 const debugLine = document.getElementById("debug-line");
-const APP_BUILD = "2026-02-21.5";
+const APP_BUILD = "2026-02-21.6";
 const BACKEND_API_URL = "https://paper-consistency-platform-api.onrender.com";
 
 let activeIssueId = null;
