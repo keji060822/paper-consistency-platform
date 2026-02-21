@@ -74,3 +74,19 @@ Stop all:
   - `logic`
   - `citation_figure`
 - Interactive sentence highlighting and report export
+
+## 7) Deploy backend (Render)
+
+This repo includes `render.yaml` for one-click backend deployment.
+
+1. Open:
+   - `https://render.com/deploy?repo=https://github.com/keji060822/paper-consistency-platform`
+2. Create web service from blueprint.
+3. Set env var:
+   - `GLM_API_KEY=<your_key>`
+4. Wait until service status is `Live`, then copy URL like:
+   - `https://paper-consistency-platform-api.onrender.com`
+
+Health check:
+
+- `https://paper-consistency-platform-api.onrender.com/health`
